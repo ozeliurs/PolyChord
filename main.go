@@ -41,4 +41,8 @@ func main() {
 	} else {
 		fmt.Println(jsonInfo)
 	}
+
+	NewNodeWithRandomID(network)
+
+	node1.Put("luigi", "liquori")
 }

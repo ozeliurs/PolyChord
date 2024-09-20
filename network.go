@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
+	"os"
 )
 
 // Network struct manages nodes and simulates network operations
@@ -76,10 +78,39 @@ func (net *Network) PrintNetworkInfoJSON() (string, error) {
 		networkInfo.Nodes = append(networkInfo.Nodes, nodeInfo)
 	}
 
-	jsonData, err := json.MarshalIndent(networkInfo, "", "  ")
+	jsonData, err := json.Marshal(networkInfo)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling network info to JSON: %v", err)
 	}
 
 	return string(jsonData), nil
+}
+
+func (net *Network) StartPeriodicNetworkInfoDump() {
+	go func() {
+		for {
+			jsonInfo, err := net.PrintNetworkInfoJSON()
+			if err != nil {
+				fmt.Printf("Error getting network info: %v\n", err)
+			} else {
+				err = appendToFile("data.json", jsonInfo)
+				if err != nil {
+					fmt.Printf("Error appending to file: %v\n", err)
+				}
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+}
+
+// appendToFile appends the given content to the specified file
+func appendToFile(filename, content string) error {
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(content + "\n")
+	return err
 }
