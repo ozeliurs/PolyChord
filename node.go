@@ -11,14 +11,14 @@ import (
 )
 
 const M = 5                                       // Defines the size of the identifier space (2^M)
-const StabilizerInterval = 100 * time.Millisecond // Interval for running stabilizer
+const StabilizerInterval = 10 * time.Millisecond // Interval for running stabilizer
 
 type Node struct {
 	ID          int
 	Predecessor *Node
 	Successor   *Node
 	FingerTable []*Node
-	Data        map[int]string
+	Data        map[string]string
 	mu          sync.Mutex
 	Network     *Network
 }
@@ -30,7 +30,7 @@ func NewNode(id int, network *Network) *Node {
 		Predecessor: nil,
 		Successor:   nil,
 		FingerTable: make([]*Node, M),
-		Data:        make(map[int]string),
+		Data:        make(map[string]string),
 		Network:     network,
 	}
 	node.Successor = node // Initially points to itself
@@ -65,7 +65,7 @@ func hash(s string) int {
 
 // Find the successor for a given id
 func (n *Node) FindSuccessor(id int) *Node {
-	if n.Successor == nil || between(id, n.ID, n.Successor.ID) || id == n.Successor.ID {
+	if n.Successor == nil || between(id, n.ID, n.Successor.ID, false, true) || id == n.Successor.ID {
 		return n.Successor
 	} else {
 		closest := n.ClosestPrecedingNode(id)
@@ -74,17 +74,33 @@ func (n *Node) FindSuccessor(id int) *Node {
 }
 
 // Helper function to determine if 'id' is between two ids in a ring
-func between(id, start, end int) bool {
+func between(id, start, end int, include_start, include_end bool) bool {
 	if start < end {
-		return id > start && id < end
+		if include_start && include_end {
+			return id >= start && id <= end
+		} else if include_start {
+			return id >= start && id < end
+		} else if include_end {
+			return id > start && id <= end
+		} else {
+			return id > start && id < end
+		}
 	}
-	return id > start || id < end
+	if include_start && include_end {
+		return id >= start || id <= end
+	} else if include_start {
+		return id >= start || id < end
+	} else if include_end {
+		return id > start || id <= end
+	} else {
+		return id > start || id < end
+	}
 }
 
 // Find the closest preceding node in the finger table
 func (n *Node) ClosestPrecedingNode(id int) *Node {
 	for i := M - 1; i >= 0; i-- {
-		if n.FingerTable[i] != nil && between(n.FingerTable[i].ID, n.ID, id) {
+		if n.FingerTable[i] != nil && between(n.FingerTable[i].ID, n.ID, id, false, false) {
 			return n.FingerTable[i]
 		}
 	}
@@ -108,12 +124,12 @@ func (n *Node) Join(existing *Node) error {
 
 // Stabilize the network by fixing successor/predecessor relationships
 func (n *Node) Stabilize() {
-	log.Printf("Stabilizing node %d", n.ID)
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
 	x := n.Successor.Predecessor
-	if x != nil && between(x.ID, n.ID, n.Successor.ID) {
+	if x != nil && between(x.ID, n.ID, n.Successor.ID, false, false) {
+		log.Printf("Node %d updating successor to %d", n.ID, x.ID)
 		n.Successor = x
 	}
 	n.Successor.Notify(n)
@@ -121,8 +137,8 @@ func (n *Node) Stabilize() {
 
 // Notify updates the predecessor
 func (n *Node) Notify(p *Node) {
-	log.Printf("%d notify %d", n.ID, p.ID)
-	if n.Predecessor == nil || between(p.ID, n.Predecessor.ID, n.ID) {
+	if n.Predecessor == nil || between(p.ID, n.Predecessor.ID, n.ID, false, false) {
+		log.Printf("Node %d updating predecessor to %d", n.ID, p.ID)
 		n.Predecessor = p
 	}
 }
@@ -145,7 +161,7 @@ func (n *Node) Put(key, value string) error {
 	successor.mu.Lock()
 	defer successor.mu.Unlock()
 	log.Printf("Storing key %s (hashed: %d) on node %d", key, hashedKey, successor.ID)
-	successor.Data[hashedKey] = value
+	successor.Data[key] = value
 	return nil
 }
 
@@ -158,7 +174,7 @@ func (n *Node) Get(key string) (string, bool) {
 	}
 	successor.mu.Lock()
 	defer successor.mu.Unlock()
-	value, found := successor.Data[hashedKey]
+	value, found := successor.Data[key]
 	return value, found
 }
 

@@ -32,7 +32,7 @@ func (net *Network) PrintNetworkInfoJSON() (string, error) {
 	defer net.mu.Unlock()
 
 	type KeyPair struct {
-		Key   int    `json:"key"`
+		Key   string `json:"key"`
 		Value string `json:"value"`
 	}
 
@@ -88,6 +88,9 @@ func (net *Network) PrintNetworkInfoJSON() (string, error) {
 
 func (net *Network) StartPeriodicNetworkInfoDump() {
 	go func() {
+		// Delete data.json if it exists
+		os.Remove("data.json")
+
 		for {
 			jsonInfo, err := net.PrintNetworkInfoJSON()
 			if err != nil {
@@ -98,7 +101,7 @@ func (net *Network) StartPeriodicNetworkInfoDump() {
 					fmt.Printf("Error appending to file: %v\n", err)
 				}
 			}
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(time.Millisecond)
 		}
 	}()
 }

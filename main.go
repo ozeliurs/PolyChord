@@ -7,11 +7,12 @@ import (
 
 func main() {
 	network := NewNetwork()
+	go network.StartPeriodicNetworkInfoDump()
 
 	// Create the first node with a specified ID
 	node1 := NewNodeWithRandomID(network)
 
-	numberOfNodes := 5
+	numberOfNodes := 3
 
 	// Create additional nodes with random IDs and join the network
 	for i := 0; i < numberOfNodes; i++ {
@@ -24,6 +25,7 @@ func main() {
 			fmt.Printf("Error joining node with ID %d: %v\n", node.ID, err)
 			continue
 		}
+		// time.Sleep(100 * time.Millisecond)
 	}
 
 	time.Sleep(2 * time.Second)
