@@ -33,6 +33,19 @@ func NewNode(id int, network *Network) *Node {
 	return node
 }
 
+// NewNodeWithRandomID creates a new node with a random ID
+func NewNodeWithRandomID(network *Network) *Node {
+	// Generate a random ID within the ID space (e.g., 0 to 2^M - 1)
+	maxID := big.NewInt(1 << M) // M is the number of bits, i.e., ID space 0 to 2^M-1
+	randomID, err := rand.Int(rand.Reader, maxID)
+	if err != nil {
+		fmt.Println("Error generating random ID:", err)
+		return nil
+	}
+
+	return NewNode(int(randomID.Int64()), network)
+}
+
 // Hash function to map keys to the identifier space
 func hash(s string) int {
 	h := fnv.New32a()
