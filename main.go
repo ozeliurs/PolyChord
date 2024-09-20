@@ -1,4 +1,3 @@
-// main.go
 package main
 
 import (
@@ -7,11 +6,12 @@ import (
 )
 
 func main() {
+	stabilizerInterval := 100 * time.Millisecond
 	network := NewNetwork()
 
 	// Create the first node with a specified ID
-	node1 := NewNode(1, network)
-	go node1.RunStabilizer(5 * time.Second)
+	node1 := NewNodeWithRandomID(network)
+	go node1.RunStabilizer(stabilizerInterval)
 
 	// Create additional nodes with random IDs and join the network
 	for i := 2; i <= 5; i++ {
@@ -24,7 +24,7 @@ func main() {
 			fmt.Printf("Error joining node with ID %d: %v\n", node.ID, err)
 			continue
 		}
-		go node.RunStabilizer(5 * time.Second)
+		go node.RunStabilizer(stabilizerInterval)
 	}
 
 	// Insert some data into the network

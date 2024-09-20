@@ -1,4 +1,3 @@
-// visualize.go
 package main
 
 import (

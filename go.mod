@@ -1,3 +1,3 @@
-module ozeliurs/chord
+module chord
 
 go 1.23.1
