@@ -4,12 +4,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"math/big"
 	"sync"
 	"time"
 )
 
-const M = 5 // Defines the size of the identifier space (2^M)
+const M = 5                                       // Defines the size of the identifier space (2^M)
+const StabilizerInterval = 100 * time.Millisecond // Interval for running stabilizer
 
 type Node struct {
 	ID          int
@@ -33,6 +35,11 @@ func NewNode(id int, network *Network) *Node {
 	}
 	node.Successor = node // Initially points to itself
 	network.AddNode(node)
+	log.Printf("New node created: ID=%d, Successor=%d", node.ID, node.Successor.ID)
+
+	// Start the stabilizer
+	go node.RunStabilizer(StabilizerInterval)
+
 	return node
 }
 
@@ -101,6 +108,7 @@ func (n *Node) Join(existing *Node) error {
 
 // Stabilize the network by fixing successor/predecessor relationships
 func (n *Node) Stabilize() {
+	log.Printf("Stabilizing node %d", n.ID)
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
@@ -113,6 +121,7 @@ func (n *Node) Stabilize() {
 
 // Notify updates the predecessor
 func (n *Node) Notify(p *Node) {
+	log.Printf("%d notify %d", n.ID, p.ID)
 	if n.Predecessor == nil || between(p.ID, n.Predecessor.ID, n.ID) {
 		n.Predecessor = p
 	}
@@ -135,6 +144,7 @@ func (n *Node) Put(key, value string) error {
 	}
 	successor.mu.Lock()
 	defer successor.mu.Unlock()
+	log.Printf("Storing key %s (hashed: %d) on node %d", key, hashedKey, successor.ID)
 	successor.Data[hashedKey] = value
 	return nil
 }
