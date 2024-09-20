@@ -6,8 +6,7 @@ import (
 )
 
 func main() {
-	network := NewNetwork()
-	go network.StartPeriodicNetworkInfoDump()
+	network := NewNetwork(true)
 
 	// Create the first node with a specified ID
 	node1 := NewNodeWithRandomID(network)
@@ -28,14 +27,14 @@ func main() {
 		// time.Sleep(100 * time.Millisecond)
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 
 	// Insert some data into the network
 	node1.Put("foo", "bar")
 	node1.Put("baz", "qux")
 	node1.Put("apple", "banana")
 
-	time.Sleep(2 * time.Second) // Allow time for stabilization
+	time.Sleep(100 * time.Millisecond)
 
 	jsonInfo, err := network.PrintNetworkInfoJSON()
 	if err != nil {
@@ -47,4 +46,5 @@ func main() {
 	NewNodeWithRandomID(network)
 
 	node1.Put("luigi", "liquori")
+	network.Stop()
 }

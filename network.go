@@ -3,20 +3,28 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 	"time"
-	"os"
 )
 
 // Network struct manages nodes and simulates network operations
 type Network struct {
-	Nodes map[int]*Node
-	mu    sync.Mutex
+	Nodes  map[int]*Node
+	mu     sync.Mutex
+	stopCh chan struct{}
 }
 
 // NewNetwork creates a new Chord network
-func NewNetwork() *Network {
-	return &Network{Nodes: make(map[int]*Node)}
+func NewNetwork(startMonitoring ...bool) *Network {
+	network := &Network{
+		Nodes:  make(map[int]*Node),
+		stopCh: make(chan struct{}),
+	}
+	if len(startMonitoring) > 0 && startMonitoring[0] {
+		go network.StartPeriodicNetworkInfoDump()
+	}
+	return network
 }
 
 // AddNode adds a node to the network
@@ -92,16 +100,21 @@ func (net *Network) StartPeriodicNetworkInfoDump() {
 		os.Remove("data.json")
 
 		for {
-			jsonInfo, err := net.PrintNetworkInfoJSON()
-			if err != nil {
-				fmt.Printf("Error getting network info: %v\n", err)
-			} else {
-				err = appendToFile("data.json", jsonInfo)
+			select {
+			case <-net.stopCh:
+				return
+			default:
+				jsonInfo, err := net.PrintNetworkInfoJSON()
 				if err != nil {
-					fmt.Printf("Error appending to file: %v\n", err)
+					fmt.Printf("Error getting network info: %v\n", err)
+				} else {
+					err = appendToFile("data.json", jsonInfo)
+					if err != nil {
+						fmt.Printf("Error appending to file: %v\n", err)
+					}
 				}
+				time.Sleep(time.Millisecond)
 			}
-			time.Sleep(time.Millisecond)
 		}
 	}()
 }
@@ -116,4 +129,14 @@ func appendToFile(filename, content string) error {
 
 	_, err = f.WriteString(content + "\n")
 	return err
+}
+
+// Stop calls the stop() function of all nodes in the network
+func (net *Network) Stop() {
+	net.mu.Lock()
+	defer net.mu.Unlock()
+	close(net.stopCh)
+	for _, node := range net.Nodes {
+		node.Stop()
+	}
 }

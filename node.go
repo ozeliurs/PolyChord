@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const M = 5                                       // Defines the size of the identifier space (2^M)
+const M = 5                                      // Defines the size of the identifier space (2^M)
 const StabilizerInterval = 10 * time.Millisecond // Interval for running stabilizer
 
 type Node struct {
@@ -21,6 +21,7 @@ type Node struct {
 	Data        map[string]string
 	mu          sync.Mutex
 	Network     *Network
+	stopChan    chan struct{}
 }
 
 // Create a new node
@@ -32,6 +33,7 @@ func NewNode(id int, network *Network) *Node {
 		FingerTable: make([]*Node, M),
 		Data:        make(map[string]string),
 		Network:     network,
+		stopChan:    make(chan struct{}),
 	}
 	node.Successor = node // Initially points to itself
 	network.AddNode(node)
@@ -181,8 +183,18 @@ func (n *Node) Get(key string) (string, bool) {
 // Periodic stabilization and finger table fixing
 func (n *Node) RunStabilizer(interval time.Duration) {
 	for {
-		n.Stabilize()
-		n.FixFingers()
-		time.Sleep(interval)
+		select {
+		case <-n.stopChan:
+			return
+		default:
+			n.Stabilize()
+			n.FixFingers()
+			time.Sleep(interval)
+		}
 	}
+}
+
+// Stop stops the stabilizer goroutine
+func (n *Node) Stop() {
+	close(n.stopChan)
 }

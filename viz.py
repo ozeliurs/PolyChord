@@ -28,7 +28,8 @@ def create_graph(data):
         node_id = node['id']
         successor = node['successor']
         predecessor = node['predecessor']
-        G.add_node(node_id)
+        keys_stored = len(node['data'])
+        G.add_node(node_id, keys_stored=keys_stored)
         if successor is not None:
             G.add_edge(node_id, successor, color='red', connection_type='successor')
         if predecessor is not None:
@@ -46,7 +47,7 @@ def update(frame):
 
     # Draw nodes
     nx.draw_networkx_nodes(G, pos, ax=ax, node_size=1000, node_color="lightblue")
-    nx.draw_networkx_labels(G, pos, labels={node: str(node) for node in G.nodes()},
+    nx.draw_networkx_labels(G, pos, labels={node: f"{node}\n({G.nodes[node]['keys_stored']} keys)" for node in G.nodes()},
                             font_size=10, font_weight='bold', ax=ax)
 
     # Draw edges with different arcs for successors and predecessors

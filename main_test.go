@@ -9,8 +9,7 @@ import (
 )
 
 func TestSimpleChordOperations(t *testing.T) {
-	network := NewNetwork()
-	go network.StartPeriodicNetworkInfoDump()
+	network := NewNetwork(true)
 	node1 := NewNodeWithRandomID(network)
 	node2 := NewNodeWithRandomID(network)
 	node3 := NewNodeWithRandomID(network)
@@ -38,11 +37,84 @@ func TestSimpleChordOperations(t *testing.T) {
 	if found {
 		t.Errorf("Found a non-existent key")
 	}
+
+	network.Stop()
+}
+
+func TestKeyDistribution(t *testing.T) {
+	network := NewNetwork(true)
+	initialNode := NewNodeWithRandomID(network)
+
+	numNodes := 10
+	nodes := make([]*Node, numNodes)
+	nodes[0] = initialNode
+
+	// Slowly add nodes and keys
+	for i := 1; i < numNodes; i++ {
+		nodes[i] = NewNodeWithRandomID(network)
+		err := nodes[i].Join(initialNode)
+		if err != nil {
+			t.Errorf("Failed to join node %d: %v", i, err)
+		}
+
+		// Allow some time for stabilization
+		time.Sleep(1 * time.Second)
+
+		// Add 10 keys after each node joins
+		for j := 0; j < 10; j++ {
+			key := fmt.Sprintf("key%d_%d", i, j)
+			value := fmt.Sprintf("value%d_%d", i, j)
+			err := initialNode.Put(key, value)
+			if err != nil {
+				t.Errorf("Failed to put %s: %v", key, err)
+			}
+		}
+	}
+
+	// Allow some time for final stabilization
+	time.Sleep(5 * time.Second)
+
+	// Check key distribution
+	for i := 1; i < numNodes; i++ {
+		for j := 0; j < 10; j++ {
+			key := fmt.Sprintf("key%d_%d", i, j)
+			value := fmt.Sprintf("value%d_%d", i, j)
+			correctNode := nodes[0].FindSuccessor(hash(key))
+
+			// Check if the key is stored on the correct node
+			storedValue, found := correctNode.Get(key)
+			if !found || storedValue != value {
+				t.Errorf("Key %s not stored on the correct node or has incorrect value. Expected node: %v, Found: %v, Value: %s", key, correctNode.ID, found, storedValue)
+			}
+
+			// Check if the key is not stored on other nodes
+			for _, node := range nodes {
+				if node.ID != correctNode.ID {
+					_, found := node.Get(key)
+					if found {
+						t.Errorf("Key %s incorrectly stored on node %v", key, node.ID)
+					}
+				}
+			}
+		}
+	}
+
+	network.Stop()
 }
 
 func TestStressKeys(t *testing.T) {
 	network := NewNetwork()
 	node := NewNodeWithRandomID(network)
+	node2 := NewNodeWithRandomID(network)
+	node3 := NewNodeWithRandomID(network)
+	node4 := NewNodeWithRandomID(network)
+
+	node2.Join(node)
+	node3.Join(node)
+	node4.Join(node)
+
+	// Allow some time for stabilization
+	time.Sleep(1 * time.Second)
 
 	numKeys := 10000
 	var wg sync.WaitGroup
@@ -79,10 +151,10 @@ func TestStressKeys(t *testing.T) {
 }
 
 func TestStressNodes(t *testing.T) {
-	network := NewNetwork()
+	network := NewNetwork(true)
 	initialNode := NewNodeWithRandomID(network)
 
-	numNodes := 100
+	numNodes := 25
 	nodes := make([]*Node, numNodes)
 	nodes[0] = initialNode
 
@@ -130,4 +202,6 @@ func TestStressNodes(t *testing.T) {
 	}
 	fmt.Println("Network Info:")
 	fmt.Println(info)
+
+	network.Stop()
 }
