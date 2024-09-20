@@ -1,51 +1,97 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"sync"
+	"time"
 )
 
 // Visualize the entire network and each node's data
-func VisualizeNetwork(network *Network) {
-	fmt.Println("---- Chord DHT Network Visualization ----")
-	fmt.Printf("Number of nodes: %d\n\n", len(network.Nodes))
+func VisualizeNetwork(network *Network) interface{} {
+	networkVisualization := struct {
+		NumberOfNodes int             `json:"numberOfNodes"`
+		Nodes         []VisualizeNode `json:"nodes"`
+	}{
+		NumberOfNodes: len(network.Nodes),
+		Nodes:         make([]VisualizeNode, 0, len(network.Nodes)),
+	}
 
 	// Iterate through all nodes in the network
 	for _, node := range network.Nodes {
-		fmt.Printf("Node ID: %d\n", node.ID)
-
-		// Display the node's key-value pairs
-		fmt.Println("Stored Key-Value Pairs:")
-		if len(node.Data) > 0 {
-			for key, value := range node.Data {
-				fmt.Printf("  Hashed Key: %d, Value: %s\n", key, value)
-			}
-		} else {
-			fmt.Println("  No data stored on this node.")
+		nodeData := VisualizeNode{
+			ID:   node.ID,
+			Data: node.Data,
 		}
 
-		// Display the finger table for routing information
-		fmt.Println("Finger Table:")
+		// Prepare finger table
+		fingerTable := make([]int, len(node.FingerTable))
 		for i, finger := range node.FingerTable {
 			if finger != nil {
-				fmt.Printf("  Entry %d -> Node ID: %d\n", i, finger.ID)
+				fingerTable[i] = finger.ID
 			} else {
-				fmt.Printf("  Entry %d -> (nil)\n", i)
+				fingerTable[i] = -1 // Use -1 to represent nil
 			}
 		}
+		nodeData.FingerTable = fingerTable
 
-		// Display predecessor and successor information
+		// Set predecessor and successor
 		if node.Predecessor != nil {
-			fmt.Printf("Predecessor: %d\n", node.Predecessor.ID)
+			nodeData.Predecessor = node.Predecessor.ID
 		} else {
-			fmt.Println("Predecessor: (nil)")
+			nodeData.Predecessor = -1
 		}
 
 		if node.Successor != nil {
-			fmt.Printf("Successor: %d\n", node.Successor.ID)
+			nodeData.Successor = node.Successor.ID
 		} else {
-			fmt.Println("Successor: (nil)")
+			nodeData.Successor = -1
 		}
 
-		fmt.Println("----------------------------------------")
+		networkVisualization.Nodes = append(networkVisualization.Nodes, nodeData)
 	}
+
+	return networkVisualization
+}
+
+type VisualizeNode struct {
+	ID          int            `json:"id"`
+	Data        map[int]string `json:"data"`
+	FingerTable []int          `json:"fingerTable"`
+	Predecessor int            `json:"predecessor"`
+	Successor   int            `json:"successor"`
+}
+
+// SaveNetworkState periodically saves the network state to a file
+func SaveNetworkState(network *Network, interval time.Duration, filename string) {
+	var networkStates []interface{}
+	ticker := time.NewTicker(interval)
+	mutex := &sync.Mutex{}
+
+	go func() {
+		for range ticker.C {
+			mutex.Lock()
+			networkState := VisualizeNetwork(network)
+			networkStates = append(networkStates, networkState)
+			mutex.Unlock()
+		}
+	}()
+
+	go func() {
+		for {
+			time.Sleep(10 * time.Second) // Save to file every 10 seconds
+			mutex.Lock()
+			jsonData, err := json.MarshalIndent(networkStates, "", "  ")
+			if err != nil {
+				fmt.Println("Error marshalling network states:", err)
+			} else {
+				err = os.WriteFile(filename, jsonData, 0644)
+				if err != nil {
+					fmt.Println("Error writing to file:", err)
+				}
+			}
+			mutex.Unlock()
+		}
+	}()
 }

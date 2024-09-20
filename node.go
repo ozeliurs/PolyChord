@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"crypto/rand"
-	"math/big"
+	"fmt"
 	"hash/fnv"
+	"math/big"
 	"sync"
 	"time"
 )

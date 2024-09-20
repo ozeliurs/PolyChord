@@ -9,6 +9,10 @@ func main() {
 	stabilizerInterval := 100 * time.Millisecond
 	network := NewNetwork()
 
+	saveInterval := 10 * time.Millisecond
+	filename := "network_states.json"
+	SaveNetworkState(network, saveInterval, filename)
+
 	// Create the first node with a specified ID
 	node1 := NewNodeWithRandomID(network)
 	go node1.RunStabilizer(stabilizerInterval)
@@ -27,6 +31,8 @@ func main() {
 		go node.RunStabilizer(stabilizerInterval)
 	}
 
+	time.Sleep(2 * time.Second)
+
 	// Insert some data into the network
 	node1.Put("foo", "bar")
 	node1.Put("baz", "qux")
@@ -36,4 +42,11 @@ func main() {
 
 	// Visualize the network and the hash tables on each node
 	VisualizeNetwork(network)
+
+	// Run the network for a specified duration
+	runDuration := 30 * time.Second
+	fmt.Printf("Running network for %s...\n", runDuration)
+	time.Sleep(runDuration)
+
+	fmt.Println("Program completed.")
 }
