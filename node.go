@@ -207,7 +207,14 @@ func (n *Node) RunStabilizer(interval time.Duration) {
 	}
 }
 
-// Stop stops the stabilizer goroutine
+// Stop stops the stabilizer goroutine and destroys everything
 func (n *Node) Stop() {
 	close(n.stopChan)
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	n.Predecessor = nil
+	n.Successor = nil
+	n.FingerTable = nil
+	n.Data = nil
 }

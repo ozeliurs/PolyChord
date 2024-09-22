@@ -42,6 +42,42 @@ func (net *Network) IsAlive(node *Node) bool {
 	return exists
 }
 
+// DisconnectNode disconnects a node from the network
+func (net *Network) DisconnectNode(nodeID int) error {
+	net.mu.Lock()
+	defer net.mu.Unlock()
+
+	node, exists := net.Nodes[nodeID]
+	if !exists {
+		return fmt.Errorf("node with ID %d does not exist in the network", nodeID)
+	}
+
+	// Stop the node
+	node.Stop()
+
+	// Remove the node from the network
+	delete(net.Nodes, nodeID)
+
+	return nil
+}
+
+// Stop calls the stop() function of all nodes in the network
+func (net *Network) Stop() {
+	net.mu.Lock()
+	defer net.mu.Unlock()
+	close(net.stopCh)
+	select {
+	case <-net.stopCh:
+		// Channel already closed, do nothing
+	default:
+		for _, node := range net.Nodes {
+			node.Stop()
+		}
+	}
+}
+
+// ============================ Logging ============================
+
 // PrintNetworkInfoJSON prints all the information of the Chord DHT to JSON
 func (net *Network) PrintNetworkInfoJSON() (string, error) {
 	net.mu.Lock()
@@ -137,19 +173,4 @@ func appendToFile(filename, content string) error {
 
 	_, err = f.WriteString(content + "\n")
 	return err
-}
-
-// Stop calls the stop() function of all nodes in the network
-func (net *Network) Stop() {
-	net.mu.Lock()
-	defer net.mu.Unlock()
-	close(net.stopCh)
-	select {
-	case <-net.stopCh:
-		// Channel already closed, do nothing
-	default:
-		for _, node := range net.Nodes {
-			node.Stop()
-		}
-	}
 }

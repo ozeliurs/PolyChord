@@ -57,8 +57,7 @@ def update(frame):
 
     # Draw nodes
     nx.draw_networkx_nodes(G, pos, ax=ax, node_size=1000, node_color="lightblue")
-
-    nx.draw_networkx_labels(G, pos, labels={node: f"{node}\n({G.nodes[node]['keys_stored']} keys)" for node in G.nodes()},
+    nx.draw_networkx_labels(G, pos, labels={node: f"{node}\n({G.nodes[node]['keys_stored']} keys)" for node in G.nodes() if "keys_stored" in G.nodes[node]},
                             font_size=10, font_weight='bold', ax=ax)
 
     # Draw edges with different arcs for successors, predecessors, and fingers
@@ -100,8 +99,8 @@ def update(frame):
 
 anim = animation.FuncAnimation(fig, update, frames=len(data_frames), interval=20, repeat=False)
 
-anim.save('chord_ring_visualization.gif', writer='pillow', fps=5, progress_callback=(lambda i, n: print(f'Saving frame {i+1} of {n}')))
-print("Saving gif, this is so fuuuuuuuuuuuuuucking long... (especially when you've just run my shitty code and a goddamn goroutine is `while True {}` ¯\\_(ツ)_/¯")
+end_message = "Saving gif, this is so fuuuuuuuuuuuuuucking long... (especially when you've just run my shitty code and a goddamn goroutine is `while True {}` ¯\\_(ツ)_/¯"
+anim.save('chord_ring_visualization.gif', writer='pillow', fps=5, progress_callback=lambda i, n: print(f'Saving frame {i+1} of {n}') or (print(end_message) if i == n-1 else None))
 
 plt.tight_layout()
 plt.show()

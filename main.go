@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: <program name> [simple|stress_keys|network_growth]")
+		fmt.Println("Usage: <program name> [simple|stress_keys|network_growth|node_leave]")
 		return
 	}
 
@@ -21,8 +22,10 @@ func main() {
 		runStressKeysScenario()
 	case "network_growth":
 		runNetworkGrowthScenario()
+	case "node_leave":
+		runNodeLeaveScenario()
 	default:
-		fmt.Println("Invalid scenario. Use 'simple', 'stress_keys', or 'network_growth'")
+		fmt.Println("Invalid scenario. Use 'simple', 'stress_keys', 'network_growth', or 'node_leave'")
 	}
 }
 
@@ -192,6 +195,85 @@ func runNetworkGrowthScenario() {
 			fmt.Printf("Got key %s with value %s after network stabilization\n", key, value)
 		}
 	}
+
+	jsonInfo, err := network.PrintNetworkInfoJSON()
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Println(jsonInfo)
+	}
+
+	network.Stop()
+}
+
+func runNodeLeaveScenario() {
+	network := NewNetwork(true)
+
+	// Create three nodes
+	node1 := NewNodeWithRandomID(network)
+	node2 := NewNodeWithRandomID(network)
+	node3 := NewNodeWithRandomID(network)
+
+	// Join the network
+	err := node2.Join(node1)
+	if err != nil {
+		fmt.Printf("Error joining node with ID %d: %v\n", node2.ID, err)
+	}
+
+	err = node3.Join(node1)
+	if err != nil {
+		fmt.Printf("Error joining node with ID %d: %v\n", node3.ID, err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Insert 9 random key-value pairs
+	for i := 0; i < 9; i++ {
+		key := fmt.Sprintf("key%d", i)
+		value := fmt.Sprintf("value%d", i)
+		randomNode := []*Node{node1, node2, node3}[rand.Intn(3)]
+		randomNode.Put(key, value)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Check all keys are present
+	fmt.Println("Checking keys before node leaves:")
+	keysFound := 0
+	for i := 0; i < 9; i++ {
+		key := fmt.Sprintf("key%d", i)
+		value, found := node1.Get(key)
+		if found {
+			fmt.Printf("Key %s found with value %s\n", key, value)
+			keysFound++
+		} else {
+			fmt.Printf("Key %s not found\n", key)
+		}
+	}
+
+	// One node leaves the network
+	network.DisconnectNode(node3.ID)
+	time.Sleep(100 * time.Millisecond)
+
+	// Check keys after node leaves
+	fmt.Println("\nChecking keys after node leaves:")
+	keysFoundAfterLeave := 0
+	for i := 0; i < 9; i++ {
+		key := fmt.Sprintf("key%d", i)
+		value, found := node1.Get(key)
+		if found {
+			fmt.Printf("Key %s found with value %s\n", key, value)
+			keysFoundAfterLeave++
+		} else {
+			fmt.Printf("Key %s not found\n", key)
+		}
+	}
+
+	// Calculate percentage of keys lost
+	percentLost := float64(keysFound-keysFoundAfterLeave) / float64(keysFound) * 100
+	fmt.Printf("\nPercentage of keys lost: %.2f%%\n", percentLost)
+
+	time.Sleep(100 * time.Millisecond)
 
 	jsonInfo, err := network.PrintNetworkInfoJSON()
 	if err != nil {
