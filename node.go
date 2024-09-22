@@ -13,6 +13,15 @@ import (
 const M = 5                                      // Defines the size of the identifier space (2^M)
 const StabilizerInterval = 10 * time.Millisecond // Interval for running stabilizer
 
+type NodeStatus int
+
+const (
+	StatusActive NodeStatus = iota
+	StatusJoining
+	StatusLeaving
+	StatusInactive
+)
+
 type Node struct {
 	ID          int
 	Predecessor *Node
@@ -22,6 +31,7 @@ type Node struct {
 	mu          sync.Mutex
 	Network     *Network
 	stopChan    chan struct{}
+	Status      NodeStatus
 }
 
 // Create a new node
@@ -34,10 +44,11 @@ func NewNode(id int, network *Network) *Node {
 		Data:        make(map[string]string),
 		Network:     network,
 		stopChan:    make(chan struct{}),
+		Status:      StatusJoining,
 	}
 	node.Successor = node // Initially points to itself
 	network.AddNode(node)
-	log.Printf("New node created: ID=%d, Successor=%d", node.ID, node.Successor.ID)
+	log.Printf("New node created: ID=%d, Successor=%d, Status=%v", node.ID, node.Successor.ID, node.Status)
 
 	// Start the stabilizer
 	go node.RunStabilizer(StabilizerInterval)
@@ -121,6 +132,7 @@ func (n *Node) Join(existing *Node) error {
 		n.Predecessor = nil
 		n.Successor = n
 	}
+	n.Status = StatusActive
 	return nil
 }
 
@@ -180,7 +192,19 @@ func (n *Node) Get(key string) (string, bool) {
 	return value, found
 }
 
-// Periodic stabilization and finger table fixing
+// CheckPredecessor checks if the predecessor has failed, and sets it to nil if so
+func (n *Node) CheckPredecessor() {
+	if n.Predecessor != nil {
+		// Implement a check to see if the predecessor is still alive
+		// For example, you could try to ping the predecessor
+		// If the check fails, set the predecessor to nil
+		if !n.Network.IsAlive(n.Predecessor) {
+			n.Predecessor = nil
+		}
+	}
+}
+
+// Periodic stabilization, finger table fixing, and predecessor checking
 func (n *Node) RunStabilizer(interval time.Duration) {
 	for {
 		select {
@@ -189,6 +213,7 @@ func (n *Node) RunStabilizer(interval time.Duration) {
 		default:
 			n.Stabilize()
 			n.FixFingers()
+			n.CheckPredecessor()
 			time.Sleep(interval)
 		}
 	}
@@ -196,5 +221,7 @@ func (n *Node) RunStabilizer(interval time.Duration) {
 
 // Stop stops the stabilizer goroutine
 func (n *Node) Stop() {
+	n.Status = StatusLeaving
 	close(n.stopChan)
+	n.Status = StatusInactive
 }

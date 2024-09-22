@@ -34,6 +34,17 @@ func (net *Network) AddNode(node *Node) {
 	net.Nodes[node.ID] = node
 }
 
+// IsAlive checks if a node is alive in the network
+func (net *Network) IsAlive(node *Node) bool {
+	net.mu.Lock()
+	defer net.mu.Unlock()
+	n, exists := net.Nodes[node.ID]
+	if !exists {
+		return false
+	}
+	return n.Status == StatusActive
+}
+
 // PrintNetworkInfoJSON prints all the information of the Chord DHT to JSON
 func (net *Network) PrintNetworkInfoJSON() (string, error) {
 	net.mu.Lock()
@@ -136,7 +147,12 @@ func (net *Network) Stop() {
 	net.mu.Lock()
 	defer net.mu.Unlock()
 	close(net.stopCh)
-	for _, node := range net.Nodes {
-		node.Stop()
+	select {
+	case <-net.stopCh:
+		// Channel already closed, do nothing
+	default:
+		for _, node := range net.Nodes {
+			node.Stop()
+		}
 	}
 }

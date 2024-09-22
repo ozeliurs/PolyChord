@@ -79,5 +79,7 @@ def update(frame):
 
 anim = animation.FuncAnimation(fig, update, frames=len(data_frames), interval=20, repeat=False)
 
+anim.save('chord_ring_visualization.gif', writer='pillow', fps=5)
+
 plt.tight_layout()
 plt.show()
