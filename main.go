@@ -27,7 +27,7 @@ func main() {
 }
 
 func runSimpleScenario() {
-	network := NewNetwork()
+	network := NewNetwork(true)
 
 	// Create the first node with a specified ID
 	node1 := NewNodeWithRandomID(network)
@@ -72,7 +72,7 @@ func runSimpleScenario() {
 }
 
 func runStressKeysScenario() {
-	network := NewNetwork()
+	network := NewNetwork(true)
 
 	// Create the first node with a specified ID
 	node1 := NewNodeWithRandomID(network)

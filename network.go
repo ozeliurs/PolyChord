@@ -38,11 +38,8 @@ func (net *Network) AddNode(node *Node) {
 func (net *Network) IsAlive(node *Node) bool {
 	net.mu.Lock()
 	defer net.mu.Unlock()
-	n, exists := net.Nodes[node.ID]
-	if !exists {
-		return false
-	}
-	return n.Status == StatusActive
+	_, exists := net.Nodes[node.ID]
+	return exists
 }
 
 // PrintNetworkInfoJSON prints all the information of the Chord DHT to JSON
